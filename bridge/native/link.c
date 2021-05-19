@@ -1,4 +1,4 @@
-#include "device.h"
+#include "link.h"
 
 #include "utils.h"
 #include "interface.h"
@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-struct device_context_t {
+struct link_t {
     struct pbuf_queue_t rx;
     struct pbuf_queue_t tx;
 
@@ -24,9 +24,9 @@ struct device_context_t {
 };
 
 static void poll_tx(void *ctx) {
-    device_context_t *context = (device_context_t *) ctx;
+    link_t *context = (link_t *) ctx;
 
-    struct pbuf *array[DEVICE_BUFFER_ARRAY_SIZE];
+    struct pbuf *array[32];
     int size;
 
     {
@@ -34,7 +34,7 @@ static void poll_tx(void *ctx) {
 
         context->tx_polling = 0;
 
-        size = pbuf_queue_pop(&context->tx, array, DEVICE_BUFFER_ARRAY_SIZE);
+        size = pbuf_queue_pop(&context->tx, array, 32);
     }
 
     for (int i = 0; i < size; i++) {
@@ -43,7 +43,7 @@ static void poll_tx(void *ctx) {
 }
 
 static void if_output(void *context, struct pbuf *p) {
-    device_context_t *ctx = (device_context_t *) context;
+    link_t *ctx = (link_t *) context;
 
     WITH_MUTEX_LOCKED(lock, &ctx->rx_mutex);
 
@@ -53,10 +53,15 @@ static void if_output(void *context, struct pbuf *p) {
 }
 
 EXPORT
-device_context_t *new_device_context(int mtu) {
-    device_context_t *ctx = (device_context_t *) malloc(sizeof(device_context_t));
+link_t *link_attach(int mtu) {
+    WITH_LWIP_LOCKED();
 
-    memset(ctx, 0, sizeof(device_context_t));
+    if (global_interface_is_attached())
+        return NULL;
+
+    link_t *ctx = (link_t *) malloc(sizeof(link_t));
+
+    memset(ctx, 0, sizeof(link_t));
 
     pthread_mutex_init(&ctx->rx_mutex, NULL);
     pthread_mutex_init(&ctx->tx_mutex, NULL);
@@ -65,24 +70,16 @@ device_context_t *new_device_context(int mtu) {
 
     ctx->mtu = mtu;
 
+    global_interface_attach_device(&if_output, ctx, ctx->mtu);
+
     return ctx;
 }
 
-static void do_device_attach(void *arg) {
-    device_context_t *ctx = arg;
-
-    global_interface_attach_device(&if_output, ctx, ctx->mtu);
-}
-
 EXPORT
-void device_attach(device_context_t *ctx) {
-    tcpip_callback(&do_device_attach, ctx);
-}
+void link_close(link_t *ctx) {
+    WITH_LWIP_LOCKED();
 
-static void do_device_close(void *arg) {
-    device_context_t *ctx = arg;
-
-    global_interface_attach_device(NULL, NULL, -1);
+    global_interface_attach_device(NULL, NULL, DEFAULT_MTU);
 
     WITH_MUTEX_LOCKED(rx, &ctx->rx_mutex);
     WITH_MUTEX_LOCKED(tx, &ctx->tx_mutex);
@@ -93,17 +90,12 @@ static void do_device_close(void *arg) {
 }
 
 EXPORT
-void device_close(device_context_t *ctx) {
-    tcpip_callback(&do_device_close, ctx);
-}
-
-EXPORT
-void device_free(device_context_t *ctx) {
+void link_free(link_t *ctx) {
     free(ctx);
 }
 
 EXPORT
-int device_read_rx_packet(device_context_t *ctx, void *buffer, int size) {
+int link_read(link_t *ctx, void *buffer, int size) {
     struct pbuf *source = NULL;
 
     {
@@ -136,12 +128,18 @@ int device_read_rx_packet(device_context_t *ctx, void *buffer, int size) {
 }
 
 EXPORT
-int device_write_tx_packet(device_context_t *ctx, void *buffer, int size) {
+int link_write(link_t *ctx, void *buffer, int size) {
     struct pbuf *target = pbuf_alloc(PBUF_IP, size, PBUF_POOL);
 
     pbuf_take(target, buffer, size);
 
     WITH_MUTEX_LOCKED(lock, &ctx->tx_mutex);
+
+    if (ctx->closed) {
+        pbuf_free(target);
+
+        return -1;
+    }
 
     pbuf_queue_append(&ctx->tx, &target, 1);
 

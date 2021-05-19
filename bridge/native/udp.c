@@ -104,8 +104,9 @@ static void udp_poll_tx(void *ctx) {
     }
 }
 
+EXPORT
 udp_conn_t *udp_conn_listen() {
-    LOCK_TCPIP_CORE();
+    WITH_LWIP_LOCKED();
 
     struct udp_pcb *pcb = udp_new();
     struct udp_conn_t *conn = NULL;
@@ -128,8 +129,6 @@ udp_conn_t *udp_conn_listen() {
 
     conn->pcb = pcb;
 
-    UNLOCK_TCPIP_CORE();
-
     return conn;
 
     abort:
@@ -137,13 +136,12 @@ udp_conn_t *udp_conn_listen() {
     udp_remove(pcb);
     free(conn);
 
-    UNLOCK_TCPIP_CORE();
-
     return NULL;
 }
 
+EXPORT
 void udp_conn_close(udp_conn_t *conn) {
-    LOCK_TCPIP_CORE();
+    WITH_LWIP_LOCKED();
 
     WITH_MUTEX_LOCKED(rx_lock, &conn->rx_lock);
     WITH_MUTEX_LOCKED(tx_lock, &conn->tx_lock);
@@ -154,16 +152,16 @@ void udp_conn_close(udp_conn_t *conn) {
     conn->pcb = NULL;
 
     pthread_cond_broadcast(&conn->rx_cond);
-
-    UNLOCK_TCPIP_CORE();
 }
 
+EXPORT
 void udp_conn_free(udp_conn_t *udp) {
     udp_conn_close(udp);
 
     free(udp);
 }
 
+EXPORT
 int udp_conn_recv(udp_conn_t *conn, udp_metadata_t *metadata, void *buffer, int size) {
     struct pbuf *buf = NULL;
 
@@ -199,6 +197,7 @@ int udp_conn_recv(udp_conn_t *conn, udp_metadata_t *metadata, void *buffer, int 
     return (int) data_length;
 }
 
+EXPORT
 int udp_conn_sendto(udp_conn_t *conn, udp_metadata_t *metadata, void *buffer, int size) {
     struct pbuf *buf = pbuf_alloc(PBUF_TRANSPORT, size, PBUF_RAM);
     if (buf == NULL)

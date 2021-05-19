@@ -14,7 +14,7 @@ add_custom_target(
 add_library(native STATIC
         init.h init.c
         interface.h interface.c
-        device.h device.c
+        link.h link.c
         utils.h utils.c
         queues.h queues.c
         tcp.h tcp.c

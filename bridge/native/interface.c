@@ -64,6 +64,12 @@ void global_interface_attach_device(global_interface_output_func output, void *s
     global_if.mtu = mtu;
 }
 
+int global_interface_is_attached() {
+    LWIP_ASSERT_CORE_LOCKED();
+
+    return output_func != NULL || output_context != NULL;
+}
+
 struct netif *global_interface_get() {
     return &global_if;
 }

@@ -1,43 +1,67 @@
 package tun2socket
 
 import (
-	"io"
-	"net"
+	"errors"
 
 	"github.com/kr328/tun2socket/bridge"
 )
 
-type LwipStack struct {
-	*bridge.Link
-	net.Listener
-	bridge.PacketConn
+type Stack interface {
+	Link() bridge.Link
+	TCP() bridge.TCP
+	UDP() bridge.UDP
 }
 
-func (s *LwipStack) Close() error {
-	s.Listener.Close()
-	s.PacketConn.Close()
+type stack struct {
+	link bridge.Link
+	tcp  bridge.TCP
+	udp  bridge.UDP
+}
+
+func (s *stack) Link() bridge.Link {
+	return s.link
+}
+
+func (s *stack) TCP() bridge.TCP {
+	return s.tcp
+}
+
+func (s *stack) UDP() bridge.UDP {
+	return s.udp
+}
+
+func (s *stack) Close() error {
+	_ = s.link.Close()
+	_ = s.tcp.Close()
+	_ = s.udp.Close()
 
 	return nil
 }
 
-func NewLwipStack(device io.ReadWriteCloser, mtu int) (*LwipStack, error) {
-	link := bridge.NewLink(device, mtu)
-
-	listener, err := bridge.Listen()
+func NewStack(mtu int) (Stack, error) {
+	link, err := bridge.NewLink(mtu)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("unable to attach link")
 	}
 
-	packet, err := bridge.ListenPacket()
+	tcp, err := bridge.ListenTCP()
 	if err != nil {
-		listener.Close()
+		_ = link.Close()
 
-		return nil, err
+		return nil, errors.New("unable to listen tcp")
 	}
 
-	return &LwipStack{
-		Link:       link,
-		Listener:   listener,
-		PacketConn: packet,
+	udp, err := bridge.ListenUDP()
+	if err != nil {
+		_ = link.Close()
+		_ = tcp.Close()
+
+		return nil, errors.New("unable to listen udp")
+	}
+
+	return &stack{
+		link: link,
+		tcp:  tcp,
+		udp:  udp,
 	}, nil
 }

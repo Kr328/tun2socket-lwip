@@ -9,20 +9,20 @@ import (
 	"unsafe"
 )
 
-type PacketConn interface {
+type UDP interface {
 	ReadFrom(b []byte) (n int, lAddr, rAddr net.Addr, err error)
 	WriteTo(b []byte, lAddr, rAddr net.Addr) (int, error)
 	Close() error
 }
 
-type packetConn struct {
-	conn *C.udp_conn_t
+type udp struct {
+	context *C.udp_conn_t
 }
 
-func (p *packetConn) ReadFrom(b []byte) (int, net.Addr, net.Addr, error) {
+func (p *udp) ReadFrom(b []byte) (int, net.Addr, net.Addr, error) {
 	metadata := C.udp_metadata_t{}
 
-	n := C.udp_conn_recv(p.conn, &metadata, unsafe.Pointer(&b[0]), C.int(len(b)))
+	n := C.udp_conn_recv(p.context, &metadata, unsafe.Pointer(&b[0]), C.int(len(b)))
 	if n < 0 {
 		return 0, nil, nil, ErrNative
 	}
@@ -52,7 +52,7 @@ func (p *packetConn) ReadFrom(b []byte) (int, net.Addr, net.Addr, error) {
 	return int(n), lAddr, rAddr, nil
 }
 
-func (p *packetConn) WriteTo(b []byte, lAddr, rAddr net.Addr) (int, error) {
+func (p *udp) WriteTo(b []byte, lAddr, rAddr net.Addr) (int, error) {
 	metadata := C.udp_metadata_t{}
 
 	udpLAddr, ok := lAddr.(*net.UDPAddr)
@@ -85,7 +85,7 @@ func (p *packetConn) WriteTo(b []byte, lAddr, rAddr net.Addr) (int, error) {
 	metadata.dst_port = C.uint16_t(udpLAddr.Port)
 	metadata.src_port = C.uint16_t(udpRAddr.Port)
 
-	n := C.udp_conn_sendto(p.conn, &metadata, unsafe.Pointer(&b[0]), C.int(len(b)))
+	n := C.udp_conn_sendto(p.context, &metadata, unsafe.Pointer(&b[0]), C.int(len(b)))
 	if n < 0 {
 		return 0, ErrNative
 	}
@@ -93,25 +93,25 @@ func (p *packetConn) WriteTo(b []byte, lAddr, rAddr net.Addr) (int, error) {
 	return int(n), nil
 }
 
-func (p *packetConn) Close() error {
-	C.udp_conn_close(p.conn)
+func (p *udp) Close() error {
+	C.udp_conn_close(p.context)
 
 	return nil
 }
 
-func ListenPacket() (PacketConn, error) {
+func ListenUDP() (UDP, error) {
 	conn := C.udp_conn_listen()
 	if conn == nil {
 		return nil, ErrNative
 	}
 
-	r := &packetConn{conn: conn}
+	r := &udp{context: conn}
 
 	runtime.SetFinalizer(r, packetConnDestroy)
 
 	return r, nil
 }
 
-func packetConnDestroy(conn *packetConn) {
-	C.udp_conn_free(conn.conn)
+func packetConnDestroy(conn *udp) {
+	C.udp_conn_free(conn.context)
 }

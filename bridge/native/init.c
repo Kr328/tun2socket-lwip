@@ -23,7 +23,7 @@ static void tcpip_initialize(void *arg) {
     pthread_cond_broadcast(&context->cond);
 }
 
-UNUSED
+EXPORT
 void init_lwip() {
     struct initialize_context context = {.initialized = 0};
 

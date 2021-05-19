@@ -5,5 +5,5 @@
 #include <stdint.h>
 #include <stddef.h>
 
-UNUSED
+EXPORT
 void init_lwip();

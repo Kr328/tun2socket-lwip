@@ -13,4 +13,5 @@ void global_interface_init();
 void global_interface_inject_packet(struct pbuf *buf);
 void global_interface_attach_device(global_interface_output_func output, void *state, int mtu);
 
+int global_interface_is_attached();
 struct netif *global_interface_get();

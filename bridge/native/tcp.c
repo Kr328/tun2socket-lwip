@@ -18,6 +18,7 @@ struct tcp_conn_t {
     int offset;
 };
 
+EXPORT
 tcp_listener_t *tcp_listener_listen() {
     struct netconn *conn = netconn_new(NETCONN_TCP);
 
@@ -44,6 +45,7 @@ tcp_listener_t *tcp_listener_listen() {
     return NULL;
 }
 
+EXPORT
 tcp_conn_t *tcp_listener_accept(tcp_listener_t *listener) {
     struct netconn *new_conn = NULL;
 
@@ -60,16 +62,19 @@ tcp_conn_t *tcp_listener_accept(tcp_listener_t *listener) {
     return conn;
 }
 
+EXPORT
 void tcp_listener_close(tcp_listener_t *listener) {
     netconn_prepare_delete(listener->conn);
 }
 
+EXPORT
 void tcp_listener_free(tcp_listener_t *listener) {
     netconn_delete(listener->conn);
 
     free(listener);
 }
 
+EXPORT
 int tcp_conn_read(tcp_conn_t *conn, void *data, int length) {
     if (conn->pending != NULL) {
         int copied = netbuf_copy_partial(conn->pending, data, length, conn->offset);
@@ -105,6 +110,7 @@ int tcp_conn_read(tcp_conn_t *conn, void *data, int length) {
     return copied;
 }
 
+EXPORT
 int tcp_conn_write(tcp_conn_t *conn, void *data, int length) {
     if (netconn_write(conn->conn, data, length, NETCONN_COPY) != ERR_OK)
         return -1;
@@ -126,18 +132,22 @@ static int tcp_conn_get_addr(tcp_conn_t *conn, uint8_t addr[4], uint16_t *port, 
     return 0;
 }
 
+EXPORT
 int tcp_conn_local_addr(tcp_conn_t *conn, uint8_t addr[4], uint16_t *port) {
     return tcp_conn_get_addr(conn, addr, port, 0);
 }
 
+EXPORT
 int tcp_conn_remote_addr(tcp_conn_t *conn, uint8_t addr[4], uint16_t *port) {
     return tcp_conn_get_addr(conn, addr, port, 1);
 }
 
+EXPORT
 void tcp_conn_close(tcp_conn_t *conn) {
     netconn_prepare_delete(conn->conn);
 }
 
+EXPORT
 void tcp_conn_free(tcp_conn_t *conn) {
     if (conn->pending != NULL)
         netbuf_free(conn->pending);

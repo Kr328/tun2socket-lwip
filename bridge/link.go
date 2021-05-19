@@ -1,76 +1,60 @@
 package bridge
 
-//#include "device.h"
+//#include "link.h"
 import "C"
 
 import (
-	"io"
-	"sync"
+	"runtime"
 	"unsafe"
 )
 
-var (
-	globalLinkLock = sync.Mutex{}
-)
-
-type Link struct {
-	device io.ReadWriteCloser
-	mtu    int
+type Link interface {
+	Read(buf []byte) (int, error)
+	Write(buf []byte) (int, error)
+	Close() error
 }
 
-func (l *Link) Start() error {
-	go l.process()
+type link struct {
+	context *C.link_t
+}
+
+func (l *link) Read(buf []byte) (int, error) {
+	n := C.link_read(l.context, unsafe.Pointer(&buf[0]), C.int(len(buf)))
+	if n < 0 {
+		return 0, ErrNative
+	}
+
+	return int(n), nil
+}
+
+func (l *link) Write(buf []byte) (int, error) {
+	n := C.link_write(l.context, unsafe.Pointer(&buf[0]), C.int(len(buf)))
+	if n < 0 {
+		return 0, ErrNative
+	}
+
+	return int(n), nil
+}
+
+func (l *link) Close() error {
+	C.link_close(l.context)
 
 	return nil
 }
 
-func NewLink(device io.ReadWriteCloser, mtu int) *Link {
-	return &Link{
-		device: device,
-		mtu:    mtu,
+func NewLink(mtu int) (Link, error) {
+	context := C.link_attach(C.int(mtu))
+	if context == nil {
+		return nil, ErrNative
 	}
+
+	l := &link{context: context}
+
+	runtime.SetFinalizer(l, linkDestroy)
+
+	return l, nil
 }
 
-func (l *Link) process() {
-	globalLinkLock.Lock()
-	defer globalLinkLock.Unlock()
-
-	context := C.new_device_context(C.int(l.mtu))
-
-	C.device_attach(context)
-
-	go func() {
-		// lwip -> tun device
-
-		buffer := make([]byte, l.mtu)
-
-		defer C.device_free(context)
-
-		for {
-			n := C.device_read_rx_packet(context, unsafe.Pointer(&buffer[0]), C.int(len(buffer)))
-
-			if n < 0 {
-				return
-			} else if n == 0 {
-				continue
-			}
-
-			_, _ = l.device.Write(buffer[:n])
-		}
-	}()
-
-	// tun device -> lwip
-
-	buffer := make([]byte, l.mtu)
-
-	defer C.device_close(context)
-
-	for {
-		n, err := l.device.Read(buffer)
-		if err != nil {
-			return
-		}
-
-		C.device_write_tx_packet(context, unsafe.Pointer(&buffer[0]), C.int(n))
-	}
+func linkDestroy(l *link) {
+	C.link_free(l.context)
 }
