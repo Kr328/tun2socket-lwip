@@ -61,7 +61,6 @@ tcp_conn_t *tcp_listener_accept(tcp_listener_t *listener) {
 }
 
 void tcp_listener_close(tcp_listener_t *listener) {
-    netconn_close(listener->conn);
     netconn_prepare_delete(listener->conn);
 }
 
@@ -136,7 +135,7 @@ int tcp_conn_remote_addr(tcp_conn_t *conn, uint8_t addr[4], uint16_t *port) {
 }
 
 void tcp_conn_close(tcp_conn_t *conn) {
-    netconn_close(conn->conn);
+    netconn_prepare_delete(conn->conn);
 }
 
 void tcp_conn_free(tcp_conn_t *conn) {
