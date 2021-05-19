@@ -19,9 +19,6 @@ else ()
     message(FATAL_ERROR "Unsupported platform")
 endif ()
 
-set(CMAKE_USE_PTHREADS_INIT on)
-set(THREADS_PREFER_PTHREAD_FLAG on)
-
 add_library(lwip STATIC ${LWIP_SOURCES} ${LWIP_PORT_SOURCES})
 target_include_directories(lwip PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
 target_link_libraries(lwip)
