@@ -7,7 +7,7 @@
 #include "lwip/tcpip.h"
 
 #include <string.h>
-#include <malloc.h>
+#include <stdlib.h>
 
 struct device_context_t {
     struct pbuf_queue_t rx;
