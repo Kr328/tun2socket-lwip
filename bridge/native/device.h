@@ -24,5 +24,5 @@ EXPORT void device_attach(device_context_t *ctx);
 EXPORT void device_close(device_context_t *ctx);
 EXPORT void device_free(device_context_t *ctx);
 
-EXPORT int device_read_rx_packets(device_context_t *ctx, struct device_buffer_array_t *buffers);
-EXPORT int device_write_tx_packets(device_context_t *ctx, struct device_buffer_array_t *buffers, int size);
+EXPORT int device_read_rx_packet(device_context_t *ctx, void *buffer, int size);
+EXPORT int device_write_tx_packet(device_context_t *ctx, void *buffer, int size);

@@ -1,18 +1,12 @@
 package bridge
 
-/*
-#include "device.h"
-
-#include <malloc.h>
-*/
+//#include "device.h"
 import "C"
 
 import (
 	"io"
 	"sync"
 	"unsafe"
-
-	"github.com/kr328/tun2socket/bridge/platform"
 )
 
 var (
@@ -48,75 +42,35 @@ func (l *Link) process() {
 	go func() {
 		// lwip -> tun device
 
-		buffers := make([][]byte, int(C.DEVICE_BUFFER_ARRAY_SIZE))
-		nativeBuffers := (*C.device_buffer_array_t)(C.malloc(C.sizeof_device_buffer_array_t))
-		defer C.device_free(context)
-		defer C.free(unsafe.Pointer(nativeBuffers))
+		buffer := make([]byte, l.mtu)
 
-		for i := 0; i < len(buffers); i++ {
-			buffers[i] = make([]byte, l.mtu)
-			nativeBuffers.buffers[i].data = unsafe.Pointer(&buffers[i][0])
-			nativeBuffers.buffers[i].length = 0
-		}
+		defer C.device_free(context)
 
 		for {
-			for i := 0; i < len(buffers); i++ {
-				nativeBuffers.buffers[i].length = C.int(len(buffers[i]))
-			}
-
-			n := C.device_read_rx_packets(context, nativeBuffers)
+			n := C.device_read_rx_packet(context, unsafe.Pointer(&buffer[0]), C.int(len(buffer)))
 
 			if n < 0 {
 				return
+			} else if n == 0 {
+				continue
 			}
 
-			for i := 0; i < int(n); i++ {
-				length := int(nativeBuffers.buffers[i].length)
-
-				if length < 0 {
-					continue
-				}
-
-				_, err := l.device.Write(buffers[i][:length])
-				if err != nil {
-					println(err.Error())
-				}
-			}
+			_, _ = l.device.Write(buffer[:n])
 		}
 	}()
 
 	// tun device -> lwip
 
-	buffers := make([][]byte, int(C.DEVICE_BUFFER_ARRAY_SIZE))
-	nativeBuffers := (*C.device_buffer_array_t)(C.malloc(C.sizeof_device_buffer_array_t))
-	defer C.device_close(context)
-	defer C.free(unsafe.Pointer(nativeBuffers))
+	buffer := make([]byte, l.mtu)
 
-	for i := 0; i < len(buffers); i++ {
-		buffers[i] = make([]byte, l.mtu)
-		nativeBuffers.buffers[i].data = unsafe.Pointer(&buffers[i][0])
-		nativeBuffers.buffers[i].length = 0
-	}
+	defer C.device_close(context)
 
 	for {
-		n, err := l.device.Read(buffers[0][:])
+		n, err := l.device.Read(buffer)
 		if err != nil {
 			return
 		}
 
-		nativeBuffers.buffers[0].length = C.int(n)
-
-		var c int
-
-		for c = 1; c < len(buffers); c++ {
-			n, err := platform.PollRead(l.device, buffers[c])
-			if err != nil {
-				break
-			}
-
-			nativeBuffers.buffers[c].length = C.int(n)
-		}
-
-		C.device_write_tx_packets(context, nativeBuffers, C.int(c))
+		C.device_write_tx_packet(context, unsafe.Pointer(&buffer[0]), C.int(n))
 	}
 }

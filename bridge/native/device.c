@@ -7,7 +7,6 @@
 #include "lwip/tcpip.h"
 
 #include <string.h>
-#include <assert.h>
 #include <malloc.h>
 
 struct device_context_t {
@@ -104,9 +103,8 @@ void device_free(device_context_t *ctx) {
 }
 
 EXPORT
-int device_read_rx_packets(device_context_t *ctx, struct device_buffer_array_t *buffers) {
-    struct pbuf *array[DEVICE_BUFFER_ARRAY_SIZE];
-    int size;
+int device_read_rx_packet(device_context_t *ctx, void *buffer, int size) {
+    struct pbuf *source = NULL;
 
     {
         WITH_MUTEX_LOCKED(lock, &ctx->rx_mutex);
@@ -118,46 +116,34 @@ int device_read_rx_packets(device_context_t *ctx, struct device_buffer_array_t *
             pthread_cond_wait(&ctx->rx_cond, &ctx->rx_mutex);
         }
 
-        size = pbuf_queue_pop(&ctx->rx, array, DEVICE_BUFFER_ARRAY_SIZE);
+        pbuf_queue_pop(&ctx->rx, &source, 1);
     }
 
-    for (int i = 0; i < size; i++) {
-        struct pbuf *source = array[i];
-        struct device_buffer_t *target = &buffers->buffers[i];
+    if (source == NULL)
+        return 0;
 
-        if (source->tot_len > target->length) {
-            target->length = -1;
-        } else {
-            pbuf_copy_partial(source, target->data, source->tot_len, 0);
+    if (size >= source->tot_len) {
+        pbuf_copy_partial(source, buffer, source->tot_len, 0);
 
-            target->length = source->tot_len;
-        }
-
-        pbuf_free(source);
+        size = source->tot_len;
+    } else {
+        size = 0;
     }
+
+    pbuf_free(source);
 
     return size;
 }
 
 EXPORT
-int device_write_tx_packets(device_context_t *ctx, struct device_buffer_array_t *buffers, int size) {
-    assert(size <= DEVICE_BUFFER_ARRAY_SIZE);
+int device_write_tx_packet(device_context_t *ctx, void *buffer, int size) {
+    struct pbuf *target = pbuf_alloc(PBUF_IP, size, PBUF_POOL);
 
-    struct pbuf *array[DEVICE_BUFFER_ARRAY_SIZE];
-
-    for (int i = 0; i < size; i++) {
-        struct device_buffer_t *source = &buffers->buffers[i];
-        struct pbuf *target = pbuf_alloc(PBUF_IP, source->length, PBUF_POOL);
-
-        if (target != NULL)
-            pbuf_take(target, source->data, source->length);
-
-        array[i] = target;
-    }
+    pbuf_take(target, buffer, size);
 
     WITH_MUTEX_LOCKED(lock, &ctx->tx_mutex);
 
-    pbuf_queue_append(&ctx->tx, array, size);
+    pbuf_queue_append(&ctx->tx, &target, 1);
 
     if (!ctx->tx_polling) {
         if (tcpip_try_callback(&poll_tx, ctx) == ERR_OK) {
