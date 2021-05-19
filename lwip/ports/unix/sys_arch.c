@@ -717,3 +717,40 @@ sys_arch_unprotect(sys_prot_t pval)
     }
 }
 #endif /* SYS_LIGHTWEIGHT_PROT */
+
+static pthread_key_t key_netconn_sem;
+static pthread_once_t key_netconn_sem_once = PTHREAD_ONCE_INIT;
+
+static void netconn_sem_destroy(void *arg) {
+    sys_sem_t *sem = arg;
+
+    if (sem != NULL) {
+        sys_sem_free(sem);
+
+        free(sem);
+
+        printf("deconstructing netconn local sem\n");
+    }
+}
+
+static void netconn_sem_init() {
+    int done = pthread_key_create(&key_netconn_sem, &netconn_sem_destroy);
+
+    LWIP_ASSERT("Alloc thread local storage key", done == 0);
+}
+
+sys_sem_t* sys_arch_netconn_sem_get(void) {
+    pthread_once(&key_netconn_sem_once, &netconn_sem_init);
+
+    sys_sem_t *sem = pthread_getspecific(key_netconn_sem);
+    if (sem == NULL) {
+        sem = (sys_sem_t*)malloc(sizeof(sys_sem_t));
+        LWIP_ASSERT("failed to allocate memory for TLS semaphore", sem != NULL);
+        err_t err = sys_sem_new(sem, 0);
+        LWIP_ASSERT("failed to initialise TLS semaphore", err == ERR_OK);
+        int done = pthread_setspecific(key_netconn_sem, sem);
+        LWIP_ASSERT("failed to initialise TLS semaphore storage", done == 0);
+    }
+
+    return sem;
+}

@@ -59,5 +59,10 @@ typedef struct sys_mbox * sys_mbox_t;
 struct sys_thread;
 typedef struct sys_thread * sys_thread_t;
 
+sys_sem_t* sys_arch_netconn_sem_get(void);
+#define LWIP_NETCONN_THREAD_SEM_GET()   sys_arch_netconn_sem_get()
+#define LWIP_NETCONN_THREAD_SEM_ALLOC()
+#define LWIP_NETCONN_THREAD_SEM_FREE()
+
 #endif /* LWIP_ARCH_SYS_ARCH_H */
 
