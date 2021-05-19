@@ -1,4 +1,4 @@
-package main
+package tun2socket
 
 import (
 	"io"
@@ -20,7 +20,7 @@ func (s *LwipStack) Close() error {
 	return nil
 }
 
-func NewLwipStack(device io.ReadWriteCloser, mtu int) (interface{}, error) {
+func NewLwipStack(device io.ReadWriteCloser, mtu int) (*LwipStack, error) {
 	link := bridge.NewLink(device, mtu)
 
 	listener, err := bridge.Listen()
@@ -40,8 +40,4 @@ func NewLwipStack(device io.ReadWriteCloser, mtu int) (interface{}, error) {
 		Listener:   listener,
 		PacketConn: packet,
 	}, nil
-}
-
-func main() {
-
 }
