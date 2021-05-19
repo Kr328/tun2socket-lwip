@@ -1,9 +1,9 @@
 #include "utils.h"
 
-void scoped_mutex_acquire(mtx_t *mutex) {
-    mtx_lock(mutex);
+void scoped_mutex_acquire(pthread_mutex_t *mutex) {
+    pthread_mutex_lock(mutex);
 }
 
-void scoped_mutex_release(mtx_t **mutex) {
-    mtx_unlock(*mutex);
+void scoped_mutex_release(pthread_mutex_t **mutex) {
+    pthread_mutex_unlock(*mutex);
 }

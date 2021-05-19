@@ -8,7 +8,6 @@
 #include "lwip/tcpip.h"
 #include "lwip/ip.h"
 
-#include <threads.h>
 #include <string.h>
 
 struct udp_conn_t {
@@ -17,10 +16,10 @@ struct udp_conn_t {
     pbuf_queue_t rx;
     pbuf_queue_t tx;
 
-    mtx_t rx_lock;
-    cnd_t rx_cond;
+    pthread_mutex_t rx_lock;
+    pthread_cond_t rx_cond;
 
-    mtx_t tx_lock;
+    pthread_mutex_t tx_lock;
     int tx_polling;
 };
 
@@ -59,7 +58,7 @@ static void udp_on_received(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 
     pbuf_queue_append(&conn->rx, &buffer, 1);
 
-    cnd_signal(&conn->rx_cond);
+    pthread_cond_signal(&conn->rx_cond);
 }
 
 static void udp_poll_tx(void *ctx) {
@@ -118,10 +117,10 @@ udp_conn_t *udp_conn_listen() {
 
     memset(conn, 0, sizeof(udp_conn_t));
 
-    mtx_init(&conn->rx_lock, mtx_plain);
-    mtx_init(&conn->tx_lock, mtx_plain);
+    pthread_mutex_init(&conn->rx_lock, NULL);
+    pthread_mutex_init(&conn->tx_lock, NULL);
 
-    cnd_init(&conn->rx_cond);
+    pthread_cond_init(&conn->rx_cond, NULL);
 
     udp_bind_netif(pcb, global_interface_get());
 
@@ -154,7 +153,7 @@ void udp_conn_close(udp_conn_t *conn) {
 
     conn->pcb = NULL;
 
-    cnd_broadcast(&conn->rx_cond);
+    pthread_cond_broadcast(&conn->rx_cond);
 
     UNLOCK_TCPIP_CORE();
 }
@@ -175,7 +174,7 @@ int udp_conn_recv(udp_conn_t *conn, udp_metadata_t *metadata, void *buffer, int 
             if (conn->pcb == NULL)
                 return -1;
 
-            cnd_wait(&conn->rx_cond, &conn->rx_lock);
+            pthread_cond_wait(&conn->rx_cond, &conn->rx_lock);
         }
 
         pbuf_queue_pop(&conn->rx, &buf, 1);

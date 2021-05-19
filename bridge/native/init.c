@@ -6,8 +6,8 @@
 #include "lwip/tcpip.h"
 
 struct initialize_context {
-    mtx_t lock;
-    cnd_t cond;
+    pthread_mutex_t lock;
+    pthread_cond_t cond;
     int initialized;
 };
 
@@ -20,20 +20,20 @@ static void tcpip_initialize(void *arg) {
 
     context->initialized = 1;
 
-    cnd_broadcast(&context->cond);
+    pthread_cond_broadcast(&context->cond);
 }
 
 UNUSED
 void init_lwip() {
     struct initialize_context context = {.initialized = 0};
 
-    mtx_init(&context.lock, mtx_plain);
-    cnd_init(&context.cond);
+    pthread_mutex_init(&context.lock, NULL);
+    pthread_cond_init(&context.cond, NULL);
 
     WITH_MUTEX_LOCKED(initialize, &context.lock);
 
     tcpip_init(tcpip_initialize, &context);
 
     while (!context.initialized)
-        cnd_wait(&context.cond, &context.lock);
+        pthread_cond_wait(&context.cond, &context.lock);
 }

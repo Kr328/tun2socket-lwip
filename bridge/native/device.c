@@ -14,10 +14,10 @@ struct device_context_t {
     struct pbuf_queue_t rx;
     struct pbuf_queue_t tx;
 
-    mtx_t rx_mutex;
-    cnd_t rx_cond;
+    pthread_mutex_t rx_mutex;
+    pthread_cond_t rx_cond;
 
-    mtx_t tx_mutex;
+    pthread_mutex_t tx_mutex;
     int tx_polling;
 
     int closed;
@@ -50,7 +50,7 @@ static void if_output(void *context, struct pbuf *p) {
 
     pbuf_queue_append(&ctx->rx, &p, 1);
 
-    cnd_signal(&ctx->rx_cond);
+    pthread_cond_signal(&ctx->rx_cond);
 }
 
 EXPORT
@@ -59,10 +59,10 @@ device_context_t *new_device_context(int mtu) {
 
     memset(ctx, 0, sizeof(device_context_t));
 
-    mtx_init(&ctx->rx_mutex, mtx_plain);
-    mtx_init(&ctx->tx_mutex, mtx_plain);
+    pthread_mutex_init(&ctx->rx_mutex, NULL);
+    pthread_mutex_init(&ctx->tx_mutex, NULL);
 
-    cnd_init(&ctx->rx_cond);
+    pthread_cond_init(&ctx->rx_cond, NULL);
 
     ctx->mtu = mtu;
 
@@ -90,7 +90,7 @@ static void do_device_close(void *arg) {
 
     ctx->closed = 1;
 
-    cnd_broadcast(&ctx->rx_cond);
+    pthread_cond_broadcast(&ctx->rx_cond);
 }
 
 EXPORT
@@ -115,7 +115,7 @@ int device_read_rx_packets(device_context_t *ctx, struct device_buffer_array_t *
             if (ctx->closed)
                 return -1;
 
-            cnd_wait(&ctx->rx_cond, &ctx->rx_mutex);
+            pthread_cond_wait(&ctx->rx_cond, &ctx->rx_mutex);
         }
 
         size = pbuf_queue_pop(&ctx->rx, array, DEVICE_BUFFER_ARRAY_SIZE);
