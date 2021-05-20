@@ -4,6 +4,11 @@ project(bridge C)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+if (APPLE)
+    SET(CMAKE_C_ARCHIVE_CREATE   "<CMAKE_AR> Scr <TARGET> <LINK_FLAGS> <OBJECTS>")
+    SET(CMAKE_C_ARCHIVE_FINISH   "<CMAKE_RANLIB> -no_warning_for_no_symbols -c <TARGET>")
+endif()
+
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../../lwip ${CMAKE_CURRENT_BINARY_DIR}/lwip)
 
 add_custom_target(
