@@ -10,6 +10,7 @@ type Stack interface {
 	Link() bridge.Link
 	TCP() bridge.TCP
 	UDP() bridge.UDP
+	Close() error
 }
 
 type stack struct {
