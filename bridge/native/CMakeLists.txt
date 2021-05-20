@@ -4,11 +4,11 @@ project(bridge C)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../../lwip ${CMAKE_CURRENT_LIST_DIR}/../build/lwip)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../../lwip ${CMAKE_CURRENT_BINARY_DIR}/lwip)
 
 add_custom_target(
         lwip-export
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:lwip> ${CMAKE_CURRENT_LIST_DIR}/../build/liblwip.a
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:lwip> ${CMAKE_CURRENT_BINARY_DIR}/liblwip.a
 )
 
 add_library(native STATIC
