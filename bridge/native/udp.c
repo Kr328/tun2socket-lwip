@@ -95,9 +95,8 @@ static void udp_poll_tx(void *ctx) {
             continue;
         }
 
-        udp_sendto_if_src_port_chksum(conn->pcb, buf, &dst_addr, dst_port,
+        udp_sendto_if_src_port(conn->pcb, buf, &dst_addr, dst_port,
                                                   global_interface_get(),
-                                                  0, 0,
                                                   &src_addr, src_port);
 
         pbuf_free(buf);

@@ -705,11 +705,17 @@ udp_sendto_if_chksum(struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *dst_i
 #endif /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
 }
 
+err_t
+udp_sendto_if_src(struct udp_pcb *pcb, struct pbuf *p,
+                  const ip_addr_t *dst_ip, u16_t dst_port, struct netif *netif, const ip_addr_t *src_ip) {
+    return udp_sendto_if_src_port(pcb, p, dst_ip, dst_port, netif, src_ip, pcb->local_port);
+}
+
 /** @ingroup udp_raw
  * Same as @ref udp_sendto_if, but with source address */
 err_t
-udp_sendto_if_src(struct udp_pcb *pcb, struct pbuf *p,
-                  const ip_addr_t *dst_ip, u16_t dst_port, struct netif *netif, const ip_addr_t *src_ip)
+udp_sendto_if_src_port(struct udp_pcb *pcb, struct pbuf *p,
+                  const ip_addr_t *dst_ip, u16_t dst_port, struct netif *netif, const ip_addr_t *src_ip, u16_t src_port)
 {
 #if LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP
   return udp_sendto_if_src_chksum(pcb, p, dst_ip, dst_port, netif, 0, 0, src_ip);
