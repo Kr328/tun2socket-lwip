@@ -68,10 +68,6 @@ func main() {
 
 	runCommand(buildCmd, cmakeDir, nil)
 
-	if GOOS == "android" {
-		GOOS = "!linux,android"
-	}
-
 	replacer := strings.NewReplacer(
 		"%%%PACKAGE%%%", packageName,
 		"%%%GOOS%%%", GOOS,
