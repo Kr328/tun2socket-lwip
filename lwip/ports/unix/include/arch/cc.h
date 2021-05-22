@@ -64,7 +64,7 @@
   handler;}} while(0)
 #endif
 
-#if defined(LWIP_UNIX_ANDROID) && __ANDROID_API__ < 21 && defined(FD_SET)
+#if defined(LWIP_UNIX_ANDROID) && defined(__ANDROID_API__) && __ANDROID_API__ < 21 && defined(FD_SET)
 typedef __kernel_fd_set fd_set;
 #endif
 
