@@ -21,7 +21,7 @@ const generatedFile = `
 package %%%PACKAGE%%%
 
 /*
-#cgo CFLAGS: -I%%%NATIVE_PATH%%%
+#cgo CFLAGS: -I%%%NATIVE_PATH%%% -O3
 #cgo LDFLAGS: -L%%%BUILD_PATH%%% -lnative -llwip
 */
 import "C"
