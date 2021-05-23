@@ -52,7 +52,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cmakeCmd := []string{"cmake"}
+	cmakeCmd := []string{"cmake", "-DCMAKE_BUILD_TYPE=Release"}
 
 	for _, e := range os.Environ() {
 		if strings.HasPrefix(e, "CMAKE") {
