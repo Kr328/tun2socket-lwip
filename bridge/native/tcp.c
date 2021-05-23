@@ -14,6 +14,11 @@ struct tcp_listener_t {
 struct tcp_conn_t {
     struct netconn *conn;
 
+    ip_addr_t local;
+    ip_addr_t remote;
+    uint16_t local_port;
+    uint16_t remote_port;
+
     struct netbuf *pending;
     int offset;
 };
@@ -49,17 +54,42 @@ EXPORT
 tcp_conn_t *tcp_listener_accept(tcp_listener_t *listener) {
     struct netconn *new_conn = NULL;
 
-    if (netconn_accept(listener->conn, &new_conn) != ERR_OK) {
-        return NULL;
+    while (1) {
+        if (netconn_accept(listener->conn, &new_conn) != ERR_OK) {
+            break;
+        }
+
+        ip_addr_t local;
+        ip_addr_t remote;
+        uint16_t local_port;
+        uint16_t remote_port;
+
+        if (netconn_getaddr(new_conn, &local, &local_port, 0) != ERR_OK) {
+            netconn_delete(new_conn);
+
+            continue;
+        }
+
+        if (netconn_getaddr(new_conn, &remote, &remote_port, 1) != ERR_OK) {
+            netconn_delete(new_conn);
+
+            continue;
+        }
+
+        tcp_conn_t *conn = malloc(sizeof(tcp_conn_t));
+
+        conn->conn = new_conn;
+        conn->pending = NULL;
+        conn->offset = 0;
+        conn->local = local;
+        conn->remote = remote;
+        conn->local_port = local_port;
+        conn->remote_port = remote_port;
+
+        return conn;
     }
 
-    tcp_conn_t *conn = malloc(sizeof(tcp_conn_t));
-
-    conn->conn = new_conn;
-    conn->pending = NULL;
-    conn->offset = 0;
-
-    return conn;
+    return NULL;
 }
 
 EXPORT
@@ -118,28 +148,24 @@ int tcp_conn_write(tcp_conn_t *conn, void *data, int length) {
     return length;
 }
 
-static int tcp_conn_get_addr(tcp_conn_t *conn, uint8_t addr[4], uint16_t *port, int local) {
-    ip_addr_t ip = *IP4_ADDR_ANY;
+EXPORT
+void tcp_conn_local_addr(tcp_conn_t *conn, uint8_t addr[4], uint16_t *port) {
+    addr[0] = ip4_addr_get_byte(&conn->local, 0);
+    addr[1] = ip4_addr_get_byte(&conn->local, 1);
+    addr[2] = ip4_addr_get_byte(&conn->local, 2);
+    addr[3] = ip4_addr_get_byte(&conn->local, 3);
 
-    if (netconn_getaddr(conn->conn, &ip, port, local) != ERR_OK)
-        return -1;
-
-    addr[0] = ip4_addr_get_byte(&ip, 0);
-    addr[1] = ip4_addr_get_byte(&ip, 1);
-    addr[2] = ip4_addr_get_byte(&ip, 2);
-    addr[3] = ip4_addr_get_byte(&ip, 3);
-
-    return 0;
+    *port = conn->local_port;
 }
 
 EXPORT
-int tcp_conn_local_addr(tcp_conn_t *conn, uint8_t addr[4], uint16_t *port) {
-    return tcp_conn_get_addr(conn, addr, port, 0);
-}
+void tcp_conn_remote_addr(tcp_conn_t *conn, uint8_t addr[4], uint16_t *port) {
+    addr[0] = ip4_addr_get_byte(&conn->remote, 0);
+    addr[1] = ip4_addr_get_byte(&conn->remote, 1);
+    addr[2] = ip4_addr_get_byte(&conn->remote, 2);
+    addr[3] = ip4_addr_get_byte(&conn->remote, 3);
 
-EXPORT
-int tcp_conn_remote_addr(tcp_conn_t *conn, uint8_t addr[4], uint16_t *port) {
-    return tcp_conn_get_addr(conn, addr, port, 1);
+    *port = conn->remote_port;
 }
 
 EXPORT

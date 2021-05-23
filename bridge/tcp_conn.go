@@ -42,9 +42,7 @@ func (c *conn) LocalAddr() net.Addr {
 	ip := net.IP{0, 0, 0, 0}
 	port := C.uint16_t(0)
 
-	if C.tcp_conn_local_addr(c.context, (*C.uint8_t)(unsafe.Pointer(&ip[0])), &port) < 0 {
-		panic(ErrNative.Error())
-	}
+	C.tcp_conn_local_addr(c.context, (*C.uint8_t)(unsafe.Pointer(&ip[0])), &port)
 
 	addr := &net.TCPAddr{
 		IP:   ip,
@@ -59,9 +57,7 @@ func (c *conn) RemoteAddr() net.Addr {
 	ip := net.IP{0, 0, 0, 0}
 	port := C.uint16_t(0)
 
-	if C.tcp_conn_remote_addr(c.context, (*C.uint8_t)(unsafe.Pointer(&ip[0])), &port) < 0 {
-		panic(ErrNative.Error())
-	}
+	C.tcp_conn_remote_addr(c.context, (*C.uint8_t)(unsafe.Pointer(&ip[0])), &port)
 
 	addr := &net.TCPAddr{
 		IP:   ip,
