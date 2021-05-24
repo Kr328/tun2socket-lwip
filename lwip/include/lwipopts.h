@@ -345,4 +345,16 @@ void sys_unlock_tcpip_core(void);
 #endif
 #endif
 
+#ifdef __ANDROID__
+#ifndef TAG
+#define TAG "LwIP"
+#endif /* TAG */
+
+#undef LWIP_PLATFORM_ASSERT
+#define LWIP_PLATFORM_ASSERT(x) do {__android_log_print(ANDROID_LOG_FATAL, TAG, "Assertion \"%s\" failed at line %d in %s\n", \
+                                     x, __LINE__, __FILE__); abort();} while(0)
+#include <android/log.h>
+#include <stdlib.h>
+#endif /* __ANDROID__ */
+
 #endif /* LWIP_LWIPOPTS_H */
