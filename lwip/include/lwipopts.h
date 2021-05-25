@@ -198,7 +198,7 @@ a lot of data that needs to be copied, this should be set high. */
 #define LWIP_WND_SCALE 1
 #define LWIP_TCP_SACK_OUT 1
 #define LWIP_TCP_TIMESTAMPS 1
-#define LWIP_CHECKSUM_ON_COPY 0
+#define LWIP_CHECKSUM_ON_COPY 1
 
 /* Controls if TCP should queue segments that arrive out of
    order. Define to 0 if your device is low on memory. */
