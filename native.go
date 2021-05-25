@@ -1,6 +1,6 @@
-package bridge
+package tun2socket
 
-//go:generate go run make/make.go $GOPACKAGE native build $GOOS $GOARCH
+//go:generate go run make/make.go $GOPACKAGE . $GOOS $GOARCH
 
 //#include "init.h"
 import "C"

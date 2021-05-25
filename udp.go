@@ -1,4 +1,4 @@
-package bridge
+package tun2socket
 
 //#include "udp.h"
 import "C"

@@ -1,6 +1,6 @@
 // +build android
 
-package bridge
+package tun2socket
 
 //#cgo LDFLAGS: -llog
 import "C"

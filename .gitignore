@@ -1,4 +1,4 @@
-/bridge/build
-/bridge/build_*.go
-.idea/
+/build
+/build_*.go
 /tun2socket
+.idea/

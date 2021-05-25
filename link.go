@@ -1,4 +1,4 @@
-package bridge
+package tun2socket
 
 //#include "link.h"
 import "C"
