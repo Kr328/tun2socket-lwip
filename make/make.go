@@ -259,7 +259,7 @@ func filterChanged(sources []*source, target string) ([]*source, error) {
 			return sources, nil
 		}
 
-		changed = append(changed)
+		changed = append(changed, s)
 	}
 
 	return changed, nil
