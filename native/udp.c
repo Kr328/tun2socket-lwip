@@ -95,9 +95,11 @@ static void udp_poll_tx(void *ctx) {
             continue;
         }
 
-        udp_sendto_if_src_port(conn->pcb, buf, &dst_addr, dst_port,
-                                                  global_interface_get(),
-                                                  &src_addr, src_port);
+        if (conn->pcb) {
+            udp_sendto_if_src_port(conn->pcb, buf, &dst_addr, dst_port,
+                                                          global_interface_get(),
+                                                          &src_addr, src_port);
+        }
 
         pbuf_free(buf);
     }
@@ -198,6 +200,9 @@ int udp_conn_recv(udp_conn_t *conn, udp_metadata_t *metadata, void *buffer, int 
 
 EXPORT
 int udp_conn_sendto(udp_conn_t *conn, udp_metadata_t *metadata, void *buffer, int size) {
+    if (!conn->pcb)
+        return -1;
+
     struct pbuf *buf = pbuf_alloc(PBUF_TRANSPORT, size, PBUF_RAM);
     if (buf == NULL)
         return -1;
