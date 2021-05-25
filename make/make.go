@@ -58,7 +58,7 @@ func main() {
 	GOOS := os.Args[3]
 	GOARCH := os.Args[4]
 
-	buildDir := path.Join(projectRoot, "build")
+	buildDir := path.Join(projectRoot, "build", GOOS, GOARCH)
 	target := path.Join(buildDir, "libnative.a")
 
 	sources, err := collectSources(projectRoot)
