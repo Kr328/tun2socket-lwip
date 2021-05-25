@@ -2,8 +2,8 @@
 
 #include "lwip/netif.h"
 #include "lwip/ip.h"
+#include "lwip/debug.h"
 
-#include <assert.h>
 #include <stdio.h>
 
 static struct netif global_if;
@@ -34,7 +34,7 @@ static err_t global_if_init(struct netif *n) {
 void global_interface_init() {
     struct netif *created = netif_add(&global_if, IP4_ADDR_ANY, IP4_ADDR_ANY, IP4_ADDR_ANY, NULL, &global_if_init, ip_input);
 
-    assert(created != NULL);
+    LWIP_ASSERT("created != NULL", created != NULL);
 
     created->mtu = DEFAULT_MTU;
 
