@@ -25,7 +25,7 @@ const generatedFile = `
 package %%%PACKAGE%%%
 
 /*
-#cgo CFLAGS: -I"%%%NATIVE_PATH%%%" -O3
+#cgo CFLAGS: -I"%%%NATIVE_PATH%%%" -fPIC -O3
 #cgo LDFLAGS: -L"%%%BUILD_PATH%%%" -lnative
 */
 import "C"
@@ -97,7 +97,7 @@ func main() {
 	lwipArchInclude := path.Join(projectRoot, "lwip", "ports", "unix", "include")
 	nativeInclude := path.Join(projectRoot, "native")
 
-	cFlags := "-O3 -I" + lwipInclude + " -I" + nativeInclude + " -I" + lwipArchInclude + " " + os.Getenv("CFLAGS")
+	cFlags := fmt.Sprintf(`-O3 -fPIC -I"%s" -I"%s" -I"%s" %s`, lwipInclude, nativeInclude, lwipArchInclude, os.Getenv("CFLAGS"))
 	objsDir := path.Join(buildDir, "objs")
 
 	var objs []string
