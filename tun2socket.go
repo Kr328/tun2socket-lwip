@@ -58,8 +58,6 @@ func NewStack(mtu int) (Stack, error) {
 		return nil, errors.New("unable to listen udp")
 	}
 
-	println(BuildNativeMD5)
-
 	return &stack{
 		link: link,
 		tcp:  tcp,
