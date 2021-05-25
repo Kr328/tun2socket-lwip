@@ -718,7 +718,7 @@ udp_sendto_if_src_port(struct udp_pcb *pcb, struct pbuf *p,
                   const ip_addr_t *dst_ip, u16_t dst_port, struct netif *netif, const ip_addr_t *src_ip, u16_t src_port)
 {
 #if LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP
-  return udp_sendto_if_src_chksum(pcb, p, dst_ip, dst_port, netif, 0, 0, src_ip);
+  return udp_sendto_if_src_port_chksum(pcb, p, dst_ip, dst_port, netif, 0, 0, src_ip, src_port);
 }
 
 /** Same as udp_sendto_if_src(), but with checksum */
