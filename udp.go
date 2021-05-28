@@ -22,7 +22,7 @@ type udp struct {
 func (p *udp) ReadFrom(b []byte) (int, net.Addr, net.Addr, error) {
 	metadata := C.udp_metadata_t{}
 
-	n := C.udp_conn_recv(p.context, &metadata, unsafe.Pointer(&b[0]), C.int(len(b)))
+	n := C.udp_conn_recv(p.context, &metadata, unsafe.Pointer(&b[:cap(b)][0]), C.int(len(b)))
 	if n < 0 {
 		return 0, nil, nil, ErrNative
 	}
@@ -85,7 +85,7 @@ func (p *udp) WriteTo(b []byte, lAddr, rAddr net.Addr) (int, error) {
 	metadata.dst_port = C.uint16_t(udpLAddr.Port)
 	metadata.src_port = C.uint16_t(udpRAddr.Port)
 
-	n := C.udp_conn_sendto(p.context, &metadata, unsafe.Pointer(&b[0]), C.int(len(b)))
+	n := C.udp_conn_sendto(p.context, &metadata, unsafe.Pointer(&b[:cap(b)][0]), C.int(len(b)))
 	if n < 0 {
 		return 0, ErrNative
 	}

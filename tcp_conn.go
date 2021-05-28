@@ -15,7 +15,7 @@ type conn struct {
 }
 
 func (c *conn) Read(b []byte) (int, error) {
-	n := int(C.tcp_conn_read(c.context, unsafe.Pointer(&b[0]), C.int(len(b))))
+	n := int(C.tcp_conn_read(c.context, unsafe.Pointer(&b[:cap(b)][0]), C.int(len(b))))
 	if n < 0 {
 		return 0, ErrNative
 	}
@@ -24,7 +24,7 @@ func (c *conn) Read(b []byte) (int, error) {
 }
 
 func (c *conn) Write(b []byte) (int, error) {
-	n := int(C.tcp_conn_write(c.context, unsafe.Pointer(&b[0]), C.int(len(b))))
+	n := int(C.tcp_conn_write(c.context, unsafe.Pointer(&b[:cap(b)][0]), C.int(len(b))))
 	if n < 0 {
 		return 0, ErrNative
 	}

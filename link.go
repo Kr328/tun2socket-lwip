@@ -19,7 +19,7 @@ type link struct {
 }
 
 func (l *link) Read(buf []byte) (int, error) {
-	n := C.link_read(l.context, unsafe.Pointer(&buf[0]), C.int(len(buf)))
+	n := C.link_read(l.context, unsafe.Pointer(&buf[:cap(buf)][0]), C.int(len(buf)))
 	if n < 0 {
 		return 0, ErrNative
 	}
@@ -28,7 +28,7 @@ func (l *link) Read(buf []byte) (int, error) {
 }
 
 func (l *link) Write(buf []byte) (int, error) {
-	n := C.link_write(l.context, unsafe.Pointer(&buf[0]), C.int(len(buf)))
+	n := C.link_write(l.context, unsafe.Pointer(&buf[:cap(buf)][0]), C.int(len(buf)))
 	if n < 0 {
 		return 0, ErrNative
 	}
