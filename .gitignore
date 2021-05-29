@@ -2,3 +2,4 @@
 /build_*.go
 /tun2socket
 .idea/
+.dev/
