@@ -134,6 +134,20 @@ func main() {
 
 	runCommand(fmt.Sprintf(`"%s" rcs "%s" %s`, ar, target, fmt.Sprintf(`"%s"`, strings.Join(objs, `" "`))))
 
+	if GOOS == "ios" || GOOS == "darwin" {
+		ranlib := os.Getenv("RANLIB")
+		if ranlib == "" {
+			ranlib, err = exec.LookPath("ranlib")
+			if err != nil {
+				println("ranlib unavailable: " + err.Error())
+
+				os.Exit(1)
+			}
+		}
+
+		runCommand(fmt.Sprintf(`"%s" -no_warning_for_no_symbols -c "%s"`, ranlib, target))
+	}
+
 	replacer := strings.NewReplacer(
 		"%%%PACKAGE%%%", packageName,
 		"%%%GOOS%%%", GOOS,
