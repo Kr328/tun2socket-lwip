@@ -97,7 +97,7 @@ func main() {
 	lwipArchInclude := path.Join(projectRoot, "lwip", "ports", "unix", "include")
 	nativeInclude := path.Join(projectRoot, "native")
 
-	cFlags := fmt.Sprintf(`-O3 -fPIC -I"%s" -I"%s" -I"%s" %s`, lwipInclude, nativeInclude, lwipArchInclude, os.Getenv("CFLAGS"))
+	cFlags := fmt.Sprintf(`-Ofast -fPIC -I"%s" -I"%s" -I"%s" %s`, lwipInclude, nativeInclude, lwipArchInclude, os.Getenv("CFLAGS"))
 	objsDir := path.Join(buildDir, "objs")
 
 	var objs []string
