@@ -218,6 +218,10 @@ func collectSources(root string) ([]*source, error) {
 			return err
 		}
 
+		if info.IsDir() && strings.HasPrefix(info.Name(), ".") {
+			return filepath.SkipDir
+		}
+
 		switch filepath.Ext(path) {
 		case ".h":
 			p, err := filepath.Rel(root, path)
