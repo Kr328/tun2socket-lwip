@@ -10,9 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 )
@@ -58,8 +56,8 @@ func main() {
 	GOOS := os.Args[3]
 	GOARCH := os.Args[4]
 
-	buildDir := path.Join(projectRoot, "build", GOOS, GOARCH)
-	target := path.Join(buildDir, "libnative.a")
+	buildDir := filepath.Join(projectRoot, "build", GOOS, GOARCH)
+	target := filepath.Join(buildDir, "libnative.a")
 
 	sources, err := collectSources(projectRoot)
 	if err != nil {
@@ -93,12 +91,20 @@ func main() {
 		}
 	}
 
-	lwipInclude := path.Join(projectRoot, "lwip", "include")
-	lwipArchInclude := path.Join(projectRoot, "lwip", "ports", "unix", "include")
-	nativeInclude := path.Join(projectRoot, "native")
+	lwipInclude := filepath.Join(projectRoot, "lwip", "include")
+	lwipArchInclude := filepath.Join(projectRoot, "lwip", "ports", "unix", "include")
+	nativeInclude := filepath.Join(projectRoot, "native")
 
-	cFlags := fmt.Sprintf(`-Ofast -fPIC -I"%s" -I"%s" -I"%s" %s`, lwipInclude, nativeInclude, lwipArchInclude, os.Getenv("CFLAGS"))
-	objsDir := path.Join(buildDir, "objs")
+	externalCFlags, err := parseCommandLine(os.Getenv("CFLAGS"))
+	if err != nil {
+		println("Parse CFLAGS: " + err.Error())
+
+		os.Exit(1)
+	}
+
+	cFlags := []string{"-Ofast", "-fPIC", "-I" + lwipInclude, "-I" + nativeInclude, "-I" + lwipArchInclude}
+	cFlags = append(cFlags, externalCFlags...)
+	objsDir := filepath.Join(buildDir, "objs")
 
 	var objs []string
 
@@ -107,17 +113,17 @@ func main() {
 			continue
 		}
 
-		obj := path.Join(objsDir, s.path+".o")
+		obj := filepath.Join(objsDir, s.path+".o")
 
-		if err := os.MkdirAll(path.Dir(obj), 0700); err != nil {
-			println("Create dir " + path.Dir(obj) + ": " + err.Error())
+		if err := os.MkdirAll(filepath.Dir(obj), 0700); err != nil {
+			println("Create dir " + filepath.Dir(obj) + ": " + err.Error())
 
 			os.Exit(1)
 		}
 
 		fmt.Printf("[%2d/%2d] %s\n", i+1, len(changed), s.path)
 
-		runCommand(fmt.Sprintf(`"%s" %s -c -o "%s" "%s"`, cc, cFlags, obj, path.Join(projectRoot, s.path)))
+		runCommand(append([]string{cc, "-c", "-o", obj, filepath.Join(projectRoot, s.path)}, cFlags...))
 
 		objs = append(objs, obj)
 	}
@@ -132,7 +138,7 @@ func main() {
 		}
 	}
 
-	runCommand(fmt.Sprintf(`"%s" rcs "%s" %s`, ar, target, fmt.Sprintf(`"%s"`, strings.Join(objs, `" "`))))
+	runCommand(append([]string{ar, "rcs", target}, objs...))
 
 	if GOOS == "ios" || GOOS == "darwin" {
 		ranlib := os.Getenv("RANLIB")
@@ -145,15 +151,15 @@ func main() {
 			}
 		}
 
-		runCommand(fmt.Sprintf(`"%s" -no_warning_for_no_symbols -c "%s"`, ranlib, target))
+		runCommand([]string{ranlib, "-no_warning_for_no_symbols", "-c", target})
 	}
 
 	replacer := strings.NewReplacer(
 		"%%%PACKAGE%%%", packageName,
 		"%%%GOOS%%%", GOOS,
 		"%%%GOARCH%%%", GOARCH,
-		"%%%NATIVE_PATH%%%", path.Join(projectRoot, "native"),
-		"%%%BUILD_PATH%%%", buildDir,
+		"%%%NATIVE_PATH%%%", strings.ReplaceAll(filepath.Join(projectRoot, "native"), "\\", "/:"),
+		"%%%BUILD_PATH%%%", strings.ReplaceAll(buildDir, "\\", "/"),
 		"%%%NATIVE_MD5%%%", fileMd5(target),
 	)
 
@@ -169,15 +175,8 @@ func main() {
 	}
 }
 
-func runCommand(command string) {
-	var cmd *exec.Cmd
-
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command("cmd.exe", "/c", command)
-	} else {
-		cmd = exec.Command("bash", "-c", command)
-	}
-
+func runCommand(command []string) {
+	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Stdin = nil
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -190,10 +189,10 @@ func runCommand(command string) {
 	}
 }
 
-func fileMd5(path string) string {
-	file, err := os.Open(path)
+func fileMd5(filepath string) string {
+	file, err := os.Open(filepath)
 	if err != nil {
-		println("Open " + path + ": " + err.Error())
+		println("Open " + filepath + ": " + err.Error())
 
 		os.Exit(1)
 	}
@@ -202,7 +201,7 @@ func fileMd5(path string) string {
 
 	_, err = io.Copy(m, file)
 	if err != nil {
-		println("Read " + path + ": " + err.Error())
+		println("Read " + filepath + ": " + err.Error())
 
 		os.Exit(1)
 	}
@@ -305,5 +304,71 @@ func findCc() (string, error) {
 		return p, nil
 	}
 
-	return "", errors.New("C Compiler clang/gcc unavailable in PATH")
+	return "", errors.New("C Compiler clang/gcc unavailable in filepath")
+}
+
+// from https://stackoverflow.com/questions/34118732/parse-a-command-line-string-into-flags-and-arguments-in-golang
+func parseCommandLine(command string) ([]string, error) {
+	var args []string
+	state := "start"
+	current := ""
+	quote := "\""
+	escapeNext := true
+	for i := 0; i < len(command); i++ {
+		c := command[i]
+
+		if state == "quotes" {
+			if string(c) != quote {
+				current += string(c)
+			} else {
+				args = append(args, current)
+				current = ""
+				state = "start"
+			}
+			continue
+		}
+
+		if escapeNext {
+			current += string(c)
+			escapeNext = false
+			continue
+		}
+
+		if c == '\\' {
+			escapeNext = true
+			continue
+		}
+
+		if c == '"' || c == '\'' {
+			state = "quotes"
+			quote = string(c)
+			continue
+		}
+
+		if state == "arg" {
+			if c == ' ' || c == '\t' {
+				args = append(args, current)
+				current = ""
+				state = "start"
+			} else {
+				current += string(c)
+			}
+			continue
+		}
+
+		if c != ' ' && c != '\t' {
+			state = "arg"
+			current += string(c)
+		}
+	}
+
+	if state == "quotes" {
+		return []string{}, errors.New(fmt.Sprintf("Unclosed quote in command line: %s", command))
+	}
+
+	if current != "" {
+		args = append(args, current)
+	}
+
+	return args, nil
 }
