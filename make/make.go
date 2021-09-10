@@ -24,7 +24,7 @@ package %%%PACKAGE%%%
 
 /*
 #cgo CFLAGS: -Inative -fPIC -O3
-#cgo LDFLAGS: -lnative_%%%GOOS%%%_%%%GOARCH%%%
+#cgo LDFLAGS: -L. -lnative_%%%GOOS%%%_%%%GOARCH%%%
 */
 import "C"
 

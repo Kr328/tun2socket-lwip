@@ -7,7 +7,7 @@ package tun2socket
 
 /*
 #cgo CFLAGS: -Inative -fPIC -O3
-#cgo LDFLAGS: -lnative_android_amd64
+#cgo LDFLAGS: -L. -lnative_android_amd64
 */
 import "C"
 
