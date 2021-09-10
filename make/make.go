@@ -23,8 +23,8 @@ const generatedFile = `
 package %%%PACKAGE%%%
 
 /*
-#cgo CFLAGS: -I"%%%NATIVE_PATH%%%" -fPIC -O3
-#cgo LDFLAGS: -L"%%%BUILD_PATH%%%" -lnative
+#cgo CFLAGS: -Inative -fPIC -O3
+#cgo LDFLAGS: -L. -lnative_%%%GOOS%%%_%%%GOARCH%%%
 */
 import "C"
 
@@ -57,7 +57,7 @@ func main() {
 	GOARCH := os.Args[4]
 
 	buildDir := filepath.Join(projectRoot, "build", GOOS, GOARCH)
-	target := filepath.Join(buildDir, "libnative.a")
+	target := filepath.Join(projectRoot, fmt.Sprintf("libnative_%s_%s.a", GOOS, GOARCH))
 
 	sources, err := collectSources(projectRoot)
 	if err != nil {
@@ -158,13 +158,11 @@ func main() {
 		"%%%PACKAGE%%%", packageName,
 		"%%%GOOS%%%", GOOS,
 		"%%%GOARCH%%%", GOARCH,
-		"%%%NATIVE_PATH%%%", strings.ReplaceAll(filepath.Join(projectRoot, "native"), "\\", "/:"),
-		"%%%BUILD_PATH%%%", strings.ReplaceAll(buildDir, "\\", "/"),
 		"%%%NATIVE_MD5%%%", fileMd5(target),
 	)
 
 	err = ioutil.WriteFile(
-		"build_"+GOOS+"_"+GOARCH+".go",
+		"native_"+GOOS+"_"+GOARCH+".go",
 		[]byte(strings.TrimSpace(replacer.Replace(generatedFile))),
 		0644,
 	)
