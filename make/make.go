@@ -66,15 +66,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	changed, err := filterChanged(sources, target)
-	if err != nil {
-		println("Filter changed: " + err.Error())
-
-		os.Exit(1)
-	}
-
-	changed = filterSource(changed)
-
+	changed := filterSource(sources)
 	if len(changed) == 0 {
 		println("Everything update to date")
 
@@ -250,34 +242,6 @@ func collectSources(root string) ([]*source, error) {
 
 		return nil
 	})
-}
-
-func filterChanged(sources []*source, target string) ([]*source, error) {
-	var changed []*source
-
-	stat, err := os.Stat(target)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, err
-	}
-
-	modified := time.Time{}
-	if stat != nil {
-		modified = stat.ModTime()
-	}
-
-	for _, s := range sources {
-		if s.modified.Before(modified) {
-			continue
-		}
-
-		if s.kind == Header {
-			return sources, nil
-		}
-
-		changed = append(changed, s)
-	}
-
-	return changed, nil
 }
 
 func filterSource(sources []*source) []*source {
