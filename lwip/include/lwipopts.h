@@ -205,22 +205,22 @@ a lot of data that needs to be copied, this should be set high. */
 #define TCP_QUEUE_OOSEQ         1
 
 /* TCP Maximum segment size. */
-#define TCP_MSS                 (9000)
+#define TCP_MSS                 9000
 
 /* TCP sender buffer space (bytes). */
-#define TCP_SND_BUF             (65535 << 4)
+#define TCP_SND_BUF             65535
+
+/* TCP receive window. */
+#define TCP_WND                 65535
 
 /* TCP sender buffer space (pbufs). This must be at least = 2 *
    TCP_SND_BUF/TCP_MSS for things to work. */
-#define TCP_SND_QUEUELEN       (4 * TCP_SND_BUF/TCP_MSS)
+#define TCP_SND_QUEUELEN        64
 
 /* TCP writable space (bytes). This must be less than or equal
    to TCP_SND_BUF. It is the amount of space which must be
    available in the tcp snd_buf for select to return writable */
-#define TCP_SNDLOWAT            (TCP_MSS)
-
-/* TCP receive window. */
-#define TCP_WND                 (65535)
+#define TCP_SNDLOWAT            0
 
 /* Maximum number of retransmissions of data segments. */
 #define TCP_MAXRTX              2
@@ -228,7 +228,9 @@ a lot of data that needs to be copied, this should be set high. */
 /* Maximum number of retransmissions of SYN segments. */
 #define TCP_SYNMAXRTX           2
 
-#define TCP_RCV_SCALE           4
+#define TCP_RCV_SCALE           8
+
+#define TCP_SNDQUEUELOWAT       0
 
 #define CHECKSUM_CHECK_TCP      0
 
