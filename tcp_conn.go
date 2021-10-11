@@ -1,6 +1,10 @@
 package tun2socket
 
-//#include "tcp.h"
+/*
+#cgo CFLAGS: -Inative
+
+#include "tcp.h"
+*/
 import "C"
 
 import (

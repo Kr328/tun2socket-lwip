@@ -2,7 +2,11 @@ package tun2socket
 
 //go:generate go run make/make.go $GOPACKAGE . $GOOS $GOARCH
 
-//#include "init.h"
+/*
+#cgo CFLAGS: -Inative
+
+#include "init.h"
+*/
 import "C"
 
 import "errors"

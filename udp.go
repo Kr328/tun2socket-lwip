@@ -1,6 +1,10 @@
 package tun2socket
 
-//#include "udp.h"
+/*
+#cgo CFLAGS: -Inative
+
+#include "udp.h"
+*/
 import "C"
 
 import (
