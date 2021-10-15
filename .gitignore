@@ -1,4 +1,4 @@
 /build
 /tun2socket
 .idea/
-.dev/
+/dev

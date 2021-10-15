@@ -73,15 +73,15 @@ func (c *conn) RemoteAddr() net.Addr {
 }
 
 func (c *conn) SetDeadline(t time.Time) error {
-	return ErrUnsupported
+	return c.Close()
 }
 
 func (c *conn) SetReadDeadline(t time.Time) error {
-	return ErrUnsupported
+	return c.SetDeadline(t)
 }
 
 func (c *conn) SetWriteDeadline(t time.Time) error {
-	return ErrUnsupported
+	return c.SetDeadline(t)
 }
 
 func newConn(context *C.tcp_conn_t) *conn {

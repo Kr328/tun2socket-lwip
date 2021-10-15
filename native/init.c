@@ -5,35 +5,27 @@
 
 #include "lwip/tcpip.h"
 
-struct initialize_context {
-    pthread_mutex_t lock;
-    pthread_cond_t cond;
-    int initialized;
-};
-
 static void tcpip_initialize(void *arg) {
-    global_interface_init();
+  global_interface_init();
 
-    struct initialize_context *context = (struct initialize_context *) arg;
+  sys_mutex_t *lock = arg;
 
-    WITH_MUTEX_LOCKED(initialize, &context->lock);
-
-    context->initialized = 1;
-
-    pthread_cond_broadcast(&context->cond);
+  sys_mutex_unlock(lock);
 }
 
 EXPORT
 void init_lwip() {
-    struct initialize_context context = {.initialized = 0};
+  sys_mutex_t lock;
 
-    pthread_mutex_init(&context.lock, NULL);
-    pthread_cond_init(&context.cond, NULL);
+  sys_mutex_new(&lock);
 
-    WITH_MUTEX_LOCKED(initialize, &context.lock);
+  sys_mutex_lock(&lock);
 
-    tcpip_init(tcpip_initialize, &context);
+  tcpip_init(tcpip_initialize, &lock);
 
-    while (!context.initialized)
-        pthread_cond_wait(&context.cond, &context.lock);
+  sys_mutex_lock(&lock);
+
+  sys_mutex_unlock(&lock);
+
+  sys_mutex_free(&lock);
 }

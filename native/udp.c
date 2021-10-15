@@ -1,231 +1,216 @@
 #include "udp.h"
 
-#include "queues.h"
 #include "interface.h"
 #include "utils.h"
 
 #include "lwip/udp.h"
 #include "lwip/tcpip.h"
 #include "lwip/ip.h"
+#include "lwip/sys.h"
 
 #include <string.h>
 
 struct udp_conn_t {
-    struct udp_pcb *pcb;
+  struct udp_pcb *pcb;
 
-    pbuf_queue_t rx;
-    pbuf_queue_t tx;
-
-    pthread_mutex_t rx_lock;
-    pthread_cond_t rx_cond;
-
-    pthread_mutex_t tx_lock;
-    int tx_polling;
+  sys_mbox_t rx;
 };
 
 static void udp_on_received(void *arg, struct udp_pcb *pcb, struct pbuf *p,
                             const ip_addr_t *src_addr, u16_t src_port) {
-    udp_conn_t *conn = arg;
+  udp_conn_t *conn = arg;
 
-    struct pbuf *buffer = pbuf_alloc(PBUF_RAW, sizeof(struct udp_metadata_t), PBUF_RAM);
-    if (buffer == NULL)
-        return;
+  uint8_t *pkt = malloc(sizeof(endpoint_t) + sizeof(struct pbuf *));
 
-    ip_addr_t *dst_addr = ip_current_dest_addr();
-    uint16_t dst_port = udp_current_dst();
+  ip_addr_t *dst_addr = ip_current_dest_addr();
+  uint16_t dst_port = udp_current_dst();
 
-    struct udp_metadata_t header;
+  endpoint_t *header = (endpoint_t *) pkt;
 
-    header.src_addr[0] = ip4_addr_get_byte(src_addr, 0);
-    header.src_addr[1] = ip4_addr_get_byte(src_addr, 1);
-    header.src_addr[2] = ip4_addr_get_byte(src_addr, 2);
-    header.src_addr[3] = ip4_addr_get_byte(src_addr, 3);
+  header->src_addr[0] = ip4_addr_get_byte(src_addr, 0);
+  header->src_addr[1] = ip4_addr_get_byte(src_addr, 1);
+  header->src_addr[2] = ip4_addr_get_byte(src_addr, 2);
+  header->src_addr[3] = ip4_addr_get_byte(src_addr, 3);
 
-    header.src_port = src_port;
+  header->src_port = src_port;
 
-    header.dst_addr[0] = ip4_addr_get_byte(dst_addr, 0);
-    header.dst_addr[1] = ip4_addr_get_byte(dst_addr, 1);
-    header.dst_addr[2] = ip4_addr_get_byte(dst_addr, 2);
-    header.dst_addr[3] = ip4_addr_get_byte(dst_addr, 3);
+  header->dst_addr[0] = ip4_addr_get_byte(dst_addr, 0);
+  header->dst_addr[1] = ip4_addr_get_byte(dst_addr, 1);
+  header->dst_addr[2] = ip4_addr_get_byte(dst_addr, 2);
+  header->dst_addr[3] = ip4_addr_get_byte(dst_addr, 3);
 
-    header.dst_port = dst_port;
+  header->dst_port = dst_port;
 
-    pbuf_take(buffer, &header, sizeof(header));
+  *((struct pbuf **) ((pkt) + sizeof(endpoint_t))) = p;
 
-    pbuf_cat(buffer, p);
+  if (sys_mbox_trypost(&conn->rx, pkt)) {
+    pbuf_free(p);
 
-    WITH_MUTEX_LOCKED(lock, &conn->rx_lock);
-
-    pbuf_queue_append(&conn->rx, &buffer, 1);
-
-    pthread_cond_signal(&conn->rx_cond);
+    free(pkt);
+  }
 }
 
-static void udp_poll_tx(void *ctx) {
-    udp_conn_t *conn = ctx;
+static void udp_write_into(void *ctx) {
+  struct pbuf *buf = (struct pbuf *) ctx;
 
-    struct pbuf *array[32];
-    int size;
+  udp_conn_t *conn = *(udp_conn_t **) (((uint8_t *) buf->payload) -
+                                       sizeof(udp_conn_t *));
+  endpoint_t *metadata = (endpoint_t *) (((uint8_t *) buf->payload) -
+                                         sizeof(udp_conn_t *) - sizeof(endpoint_t));
 
-    {
-        WITH_MUTEX_LOCKED(lock, &conn->tx_lock);
+  if (conn->pcb == NULL) {
+    pbuf_free(buf);
 
-        conn->tx_polling = 0;
+    return;
+  }
 
-        size = pbuf_queue_pop(&conn->tx, array, 32);
-    }
+  buf->len -= sizeof(udp_conn_t *) + sizeof(endpoint_t);
+  buf->tot_len -= sizeof(udp_conn_t *) + sizeof(endpoint_t);
 
-    for (int i = 0; i < size; i++) {
-        struct pbuf *buf = array[i];
+  ip_addr_t src_addr;
+  ip_addr_t dst_addr;
 
-        udp_metadata_t *metadata = (udp_metadata_t*) buf->payload;
+  IP4_ADDR(&src_addr, metadata->src_addr[0], metadata->src_addr[1], metadata->src_addr[2], metadata->src_addr[3]);
+  IP4_ADDR(&dst_addr, metadata->dst_addr[0], metadata->dst_addr[1], metadata->dst_addr[2], metadata->dst_addr[3]);
 
-        ip_addr_t src_addr;
-        ip_addr_t dst_addr;
+  uint16_t src_port = metadata->src_port;
+  uint16_t dst_port = metadata->dst_port;
 
-        IP4_ADDR(&src_addr, metadata->src_addr[0], metadata->src_addr[1], metadata->src_addr[2], metadata->src_addr[3]);
-        IP4_ADDR(&dst_addr, metadata->dst_addr[0], metadata->dst_addr[1], metadata->dst_addr[2], metadata->dst_addr[3]);
+  udp_sendto_if_src_port(conn->pcb, buf, &dst_addr, dst_port,
+                         global_interface_get(),
+                         &src_addr, src_port);
 
-        uint16_t src_port = metadata->src_port;
-        uint16_t dst_port = metadata->dst_port;
-
-        if (pbuf_remove_header(buf, sizeof(udp_metadata_t))) {
-            pbuf_free(buf);
-
-            continue;
-        }
-
-        if (conn->pcb) {
-            udp_sendto_if_src_port(conn->pcb, buf, &dst_addr, dst_port,
-                                                          global_interface_get(),
-                                                          &src_addr, src_port);
-        }
-
-        pbuf_free(buf);
-    }
+  pbuf_free(buf);
 }
 
 EXPORT
 udp_conn_t *udp_conn_listen() {
-    WITH_LWIP_LOCKED();
+  WITH_LWIP_LOCKED();
 
-    struct udp_pcb *pcb = udp_new();
-    struct udp_conn_t *conn = NULL;
+  struct udp_pcb *pcb = udp_new();
+  udp_conn_t *conn = NULL;
 
-    if (udp_bind(pcb, IP4_ADDR_ANY, UDP_ACCEPT_ANY_PORT) != ERR_OK)
-        goto abort;
+  if (udp_bind(pcb, IP4_ADDR_ANY, UDP_ACCEPT_ANY_PORT) != ERR_OK)
+    goto abort;
 
-    conn = malloc(sizeof(udp_conn_t));
+  conn = malloc(sizeof(udp_conn_t));
 
-    memset(conn, 0, sizeof(udp_conn_t));
+  memset(conn, 0, sizeof(udp_conn_t));
 
-    pthread_mutex_init(&conn->rx_lock, NULL);
-    pthread_mutex_init(&conn->tx_lock, NULL);
+  sys_mbox_new(&conn->rx, TCPIP_MBOX_SIZE);
 
-    pthread_cond_init(&conn->rx_cond, NULL);
+  udp_bind_netif(pcb, global_interface_get());
 
-    udp_bind_netif(pcb, global_interface_get());
+  udp_recv(pcb, &udp_on_received, conn);
 
-    udp_recv(pcb, &udp_on_received, conn);
+  conn->pcb = pcb;
 
-    conn->pcb = pcb;
+  return conn;
 
-    return conn;
+  abort:
 
-    abort:
+  udp_remove(pcb);
+  free(conn);
 
-    udp_remove(pcb);
-    free(conn);
-
-    return NULL;
+  return NULL;
 }
 
 EXPORT
 void udp_conn_close(udp_conn_t *conn) {
+  struct udp_pcb *pcb;
+
+  {
     WITH_LWIP_LOCKED();
 
-    WITH_MUTEX_LOCKED(rx_lock, &conn->rx_lock);
-    WITH_MUTEX_LOCKED(tx_lock, &conn->tx_lock);
-
-    if (conn->pcb != NULL)
-        udp_remove(conn->pcb);
+    pcb = conn->pcb;
 
     conn->pcb = NULL;
+  }
 
-    pthread_cond_broadcast(&conn->rx_cond);
+  sys_mbox_post(&conn->rx, NULL);
+
+  if (pcb != NULL) {
+    tcpip_callback((void (*)(void *)) &udp_remove, pcb);
+  }
 }
 
 EXPORT
 void udp_conn_free(udp_conn_t *udp) {
-    udp_conn_close(udp);
+  udp_conn_close(udp);
 
-    free(udp);
+  udp_conn_recv(udp, NULL, NULL, 0);
+
+  sys_mbox_free(&udp->rx);
+
+  tcpip_callback(free, udp);
 }
 
 EXPORT
-int udp_conn_recv(udp_conn_t *conn, udp_metadata_t *metadata, void *buffer, int size) {
-    struct pbuf *buf = NULL;
+int udp_conn_recv(udp_conn_t *conn, endpoint_t *endpoint, void *buffer, int size) {
+  while (conn->pcb != NULL) {
+    uint8_t *pkt = NULL;
 
-    {
-        WITH_MUTEX_LOCKED(lock, &conn->rx_lock);
+    sys_mbox_fetch(&conn->rx, (void **) &pkt);
 
-        while (pbuf_queue_length(&conn->rx) == 0) {
-            if (conn->pcb == NULL)
-                return -1;
-
-            pthread_cond_wait(&conn->rx_cond, &conn->rx_lock);
-        }
-
-        pbuf_queue_pop(&conn->rx, &buf, 1);
+    if (pkt == NULL) {
+      continue;
     }
 
-    if (buf == NULL)
-        return -1;
+    memcpy(endpoint, (endpoint_t *) pkt, sizeof(endpoint_t));
 
-    if (buf->tot_len - sizeof(udp_metadata_t) > size) {
-        pbuf_free(buf);
+    struct pbuf *pbuf = *(struct pbuf **) (pkt + sizeof(endpoint_t));
 
-        return -1;
+    free(pkt);
+
+    int result = 0;
+
+    if (size >= pbuf->tot_len) {
+      pbuf_copy_partial(pbuf, buffer, pbuf->tot_len, 0);
+
+      result = pbuf->tot_len;
     }
 
-    unsigned data_length = buf->tot_len - sizeof(udp_metadata_t);
+    pbuf_free(pbuf);
 
-    pbuf_copy_partial(buf, metadata, sizeof(udp_metadata_t), 0);
-    pbuf_copy_partial(buf, buffer, data_length, sizeof(udp_metadata_t));
+    if (result > 0)
+      return result;
+  }
 
+  while (1) {
+    uint8_t *pkt = NULL;
+
+    if (sys_mbox_tryfetch(&conn->rx, (void **) &pkt)) {
+      break;
+    }
+
+    struct pbuf *pbuf = *(struct pbuf **) (((uint8_t *) pkt) + sizeof(endpoint_t));
+
+    pbuf_free(pbuf);
+    free(pkt);
+  }
+
+  return -1;
+}
+
+EXPORT
+int udp_conn_sendto(udp_conn_t *conn, endpoint_t *endpoint, void *buffer, int size) {
+  if (!conn->pcb)
+    return -1;
+
+  struct pbuf *buf = pbuf_alloc(PBUF_TRANSPORT, size + sizeof(endpoint_t) + sizeof(udp_conn_t *), PBUF_RAM);
+  if (buf->next != NULL) {
     pbuf_free(buf);
 
-    return (int) data_length;
-}
+    return 0;
+  }
 
-EXPORT
-int udp_conn_sendto(udp_conn_t *conn, udp_metadata_t *metadata, void *buffer, int size) {
-    if (!conn->pcb)
-        return -1;
+  pbuf_take_at(buf, buffer, size, 0);
+  pbuf_take_at(buf, endpoint, sizeof(endpoint_t), size);
+  pbuf_take_at(buf, &conn, sizeof(udp_conn_t *), size + sizeof(endpoint_t));
 
-    struct pbuf *buf = pbuf_alloc(PBUF_TRANSPORT, size, PBUF_RAM);
-    if (buf == NULL)
-        return -1;
+  if (conn->pcb == NULL || tcpip_try_callback(&udp_write_into, buf) != ERR_OK) {
+    pbuf_free(buf);
+  }
 
-    pbuf_take(buf, buffer, size);
-
-    if (pbuf_add_header(buf, sizeof(udp_metadata_t))) {
-        pbuf_free(buf);
-
-        return -1;
-    }
-
-    pbuf_take(buf, metadata, sizeof(udp_metadata_t));
-
-    WITH_MUTEX_LOCKED(lock, &conn->tx_lock);
-
-    pbuf_queue_append(&conn->tx, &buf, 1);
-
-    if (!conn->tx_polling) {
-        if (tcpip_try_callback(&udp_poll_tx, conn) == ERR_OK) {
-            conn->tx_polling = 1;
-        }
-    }
-
-    return size;
+  return size;
 }

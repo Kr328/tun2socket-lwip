@@ -4,17 +4,25 @@
 
 #include <stdint.h>
 
-typedef struct tcp_listener_t tcp_listener_t;
-typedef struct tcp_conn_t tcp_conn_t;
+#define TCP_CONNECTION_SIZE 512
 
-EXPORT tcp_listener_t *tcp_listener_listen();
-EXPORT tcp_conn_t *tcp_listener_accept(tcp_listener_t *listener);
-EXPORT void tcp_listener_close(tcp_listener_t *listener);
-EXPORT void tcp_listener_free(tcp_listener_t *listener);
+#define EVENT_READABLE 1u
+#define EVENT_WRITABLE 2u
 
-EXPORT int tcp_conn_read(tcp_conn_t *conn, void *data, int length);
-EXPORT int tcp_conn_write(tcp_conn_t *conn, void *data, int length);
-EXPORT void tcp_conn_local_addr(tcp_conn_t *conn, uint8_t addr[4], uint16_t *port);
-EXPORT void tcp_conn_remote_addr(tcp_conn_t *conn, uint8_t addr[4], uint16_t *port);
-EXPORT void tcp_conn_close(tcp_conn_t *conn);
-EXPORT void tcp_conn_free(tcp_conn_t *conn);
+typedef struct tcp_poller_t tcp_poller_t;
+
+EXPORT tcp_poller_t *new_tcp_poller();
+
+EXPORT void tcp_poller_close(tcp_poller_t *poller);
+
+EXPORT void tcp_poller_free(tcp_poller_t *poller);
+
+EXPORT int tcp_poller_accept(tcp_poller_t *poller, uint16_t *index, endpoint_t *endpoint);
+
+EXPORT int tcp_poller_events(tcp_poller_t *poller, uint32_t *events, int size);
+
+EXPORT int tcp_poller_read_index(tcp_poller_t *poller, uint16_t index, void *buffer, int size);
+
+EXPORT int tcp_poller_write_index(tcp_poller_t *poller, uint16_t index, const void *buffer, int size);
+
+EXPORT int tcp_poller_close_index(tcp_poller_t *poller, uint16_t index);

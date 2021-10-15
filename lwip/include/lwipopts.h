@@ -76,8 +76,8 @@
 #define LWIP_NETIF_STATUS_CALLBACK      0
 #define LWIP_NETIF_EXT_STATUS_CALLBACK  0
 
-#define LWIP_NETCONN_FULLDUPLEX     1
-#define LWIP_NETCONN_SEM_PER_THREAD 1
+#define LWIP_NETCONN_FULLDUPLEX     0
+#define LWIP_NETCONN_SEM_PER_THREAD 0
 
 #ifdef LWIP_DEBUG
 
@@ -182,6 +182,12 @@ a lot of data that needs to be copied, this should be set high. */
 #define SYS_LIGHTWEIGHT_PROT    (NO_SYS==0)
 
 
+/**
+ * tcpip async api mbox size
+ */
+#define TCPIP_MBOX_SIZE 64
+
+
 /* ---------- TCP options ---------- */
 #define LWIP_TCP                1
 
@@ -232,7 +238,7 @@ a lot of data that needs to be copied, this should be set high. */
 
 #define TCP_SNDQUEUELOWAT       0
 
-#define CHECKSUM_CHECK_TCP      0
+#define CHECKSUM_CHECK_TCP      1
 
 
 /* ---------- ARP options ---------- */
